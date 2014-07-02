@@ -32,7 +32,7 @@ def drawS(XYstring):         # Draw lines from a list
   inkex.etree.SubElement(parent, inkex.addNS('path','svg'), drw )
   return
 
-def side((rx,ry), (sox,soy), (eox,eoy), tabVec, length, (dirx,diry), isTab):
+def tabbed_side((rx,ry), (sox,soy), (eox,eoy), tabVec, length, (dirx,diry), isTab):
   #       root    startOffset endOffset tabVec  length  direction    isTab
 
   num_divisions = int(length/nomTab)  # divisions
@@ -65,7 +65,7 @@ def side((rx,ry), (sox,soy), (eox,eoy), tabVec, length, (dirx,diry), isTab):
   dirxN = 0 if dirx else 1 # used to select operation on x or y
   diryN = 0 if diry else 1
   (Vx, Vy) = (rx+sox*thickness,ry+soy*thickness)
-  s = 'M '+str(Vx)+','+str(Vy)+' '
+  s = 'M ' + str(Vx) + ',' + str(Vy) + ' '
 
   if dirxN: 
     Vy = ry # set correct line start
@@ -78,19 +78,19 @@ def side((rx,ry), (sox,soy), (eox,eoy), tabVec, length, (dirx,diry), isTab):
 
   for n in range(1, int(num_divisions)):
     if n % 2 == 1:
-      Vx = Vx+dirx*gapWidth+dirxN*firstVec+first*dirx
-      Vy = Vy+diry*gapWidth+diryN*firstVec+first*diry
-      s += 'L '+str(Vx)+','+str(Vy)+' '
-      Vx = Vx+dirxN*secondVec
-      Vy = Vy+diryN*secondVec
-      s += 'L '+str(Vx)+','+str(Vy)+' '
+      Vx = Vx + dirx*gapWidth + dirxN*firstVec + first*dirx
+      Vy = Vy + diry*gapWidth + diryN*firstVec + first*diry
+      s += 'L ' + str(Vx) + ',' + str(Vy) + ' '
+      Vx = Vx + dirxN*secondVec
+      Vy = Vy + diryN*secondVec
+      s += 'L ' + str(Vx) + ',' + str(Vy) + ' '
     else:
       Vx = Vx+dirx*tabWidth+dirxN*firstVec
       Vy = Vy+diry*tabWidth+diryN*firstVec
-      s += 'L '+str(Vx)+','+str(Vy)+' '
-      Vx = Vx+dirxN*secondVec
-      Vy = Vy+diryN*secondVec
-      s += 'L '+str(Vx)+','+str(Vy)+' '
+      s += 'L ' + str(Vx) + ',' + str(Vy) + ' '
+      Vx = Vx + dirxN*secondVec
+      Vy = Vy + diryN*secondVec
+      s += 'L ' + str(Vx) + ',' + str(Vy) + ' '
     (secondVec,firstVec) = (-secondVec,-firstVec) # swap tab direction
     first = 0
   s += 'L ' + str(rx+eox*thickness+dirx*length) + ',' + str(ry+eoy*thickness+diry*length) + ' '
@@ -127,6 +127,28 @@ class BoxMaker(inkex.Effect):
       self.OptionParser.add_option('--spacing',action='store',type='float',
         dest='spacing',default=25,help='Part Spacing')
 
+  def draw_pieces(self, pieces, thickness, spacing):
+    for piece in pieces: # generate and draw each piece of the box
+      (xs,xx,xy,xz) = piece[0]
+      (ys,yx,yy,yz) = piece[1]
+      x = xs*spacing + xx*self.x_dim + xy*self.y_dim + xz*self.z_dim  # root x co-ord for piece
+      y = ys*spacing + yx*self.x_dim  +yy*self.y_dim + yz*self.z_dim  # root y co-ord for piece
+      dx = piece[2]
+      dy = piece[3]
+      tabs = piece[4]
+      
+      # extract tab status for each side
+      a = tabs>>3 & 1
+      b= tabs>>2 & 1
+      c= tabs>>1 & 1
+      d= tabs & 1 
+      # generate and draw the sides of each piece
+      drawS(tabbed_side((x,y), (d,a), (-b,a), -thickness if a else thickness, dx, (1,0), a))          # side a
+      drawS(tabbed_side((x+dx,y), (-b,a), (-b,-c), thickness if b else -thickness, dy, (0,1), b))     # side b
+      drawS(tabbed_side((x+dx,y+dy), (-b,-c), (d,-c), thickness if c else -thickness, dx, (-1,0), c)) # side c
+      drawS(tabbed_side((x,y+dy), (d,-c), (d,a), -thickness if d else thickness, dy, (0,-1), d))      # side d
+
+
   def effect(self):
     global parent, nomTab, equalTabs, thickness, correction
     
@@ -147,9 +169,10 @@ class BoxMaker(inkex.Effect):
     # Get script's option values.
     unit = self.options.unit
     inside = self.options.inside
-    X = inkex.unittouu( str(self.options.length) + unit )
-    Y = inkex.unittouu( str(self.options.width) + unit )
-    Z = inkex.unittouu( str(self.options.height) + unit )
+    self.x_dim = inkex.unittouu( str(self.options.length) + unit )
+    self.y_dim = inkex.unittouu( str(self.options.width) + unit )
+    self.z_dim = inkex.unittouu( str(self.options.height) + unit )
+
     thickness = inkex.unittouu( str(self.options.thickness) + unit )
     nomTab = inkex.unittouu( str(self.options.tab) + unit )
     equalTabs = self.options.equal
@@ -160,9 +183,9 @@ class BoxMaker(inkex.Effect):
     
     if inside: 
       # convert inside dimension to outside dimension
-      X += thickness*2
-      Y += thickness*2
-      Z += thickness*2
+      self.x_dim += thickness*2
+      self.y_dim += thickness*2
+      self.z_dim += thickness*2
 
     correction = kerf - clearance
 
@@ -170,6 +193,10 @@ class BoxMaker(inkex.Effect):
     # TODO restrict values to *correct* solutions
     error = 0
     
+    X = self.x_dim
+    Y = self.y_dim
+    Z = self.z_dim
+
     if min(X,Y,Z) == 0:
       inkex.errormsg(_('Error: Dimensions must be non zero'))
       error = 1
@@ -219,20 +246,11 @@ class BoxMaker(inkex.Effect):
               [(2,0,0,1),(2,0,0,1),X,Y,0b1100], [(3,1,0,1),(2,0,0,1),Z,Y,0b0110],
               [(4,1,0,2),(2,0,0,1),X,Y,0b0110], [(2,0,0,1),(1,0,0,0),X,Z,0b1100]]
 
-    for piece in pieces: # generate and draw each piece of the box
-      (xs,xx,xy,xz) = piece[0]
-      (ys,yx,yy,yz) = piece[1]
-      x = xs*spacing+xx*X+xy*Y+xz*Z  # root x co-ord for piece
-      y = ys*spacing+yx*X+yy*Y+yz*Z  # root y co-ord for piece
-      dx = piece[2]
-      dy = piece[3]
-      tabs = piece[4]
-      a = tabs>>3&1; b=tabs>>2&1; c=tabs>>1&1; d=tabs&1 # extract tab status for each side
-      # generate and draw the sides of each piece
-      drawS(side((x,y),(d,a),(-b,a),-thickness if a else thickness,dx,(1,0),a))          # side a
-      drawS(side((x+dx,y),(-b,a),(-b,-c),thickness if b else -thickness,dy,(0,1),b))     # side b
-      drawS(side((x+dx,y+dy),(-b,-c),(d,-c),thickness if c else -thickness,dx,(-1,0),c)) # side c
-      drawS(side((x,y+dy),(d,-c),(d,a),-thickness if d else thickness,dy,(0,-1),d))      # side d
+    self.draw_pieces(pieces, thickness, spacing)
+
+
+
+
 
 # Create effect instance and apply it.
 effect = BoxMaker()
