@@ -3,7 +3,7 @@
 Generates Inkscape SVG file containing box components needed to create several different
 types of laser cut tabbed boxes.
 
-Original version authored by: elliot white - elliot@twot.eu
+Derived from original version authored by elliot white - elliot@twot.eu
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -18,9 +18,11 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-__version__ = "0.8" ### please report bugs, suggestions etc to bugs@twot.eu ###
+__version__ = "0.1" ### please report bugs at https://github.com/zackurtz/box-maker/issues ###
 
-import sys,inkex,simplestyle,gettext
+import sys
+import inkex, simplestyle, gettext
+
 _ = gettext.gettext
 
 def drawS(XYstring):         # Draw lines from a list
@@ -30,12 +32,12 @@ def drawS(XYstring):         # Draw lines from a list
   inkex.etree.SubElement(parent, inkex.addNS('path','svg'), drw )
   return
 
-def side((rx,ry),(sox,soy),(eox,eoy),tabVec,length,(dirx,diry),isTab):
-  #       root startOffset endOffset tabVec length  direction  isTab
+def side((rx,ry), (sox,soy), (eox,eoy), tabVec, length, (dirx,diry), isTab):
+  #       root    startOffset endOffset tabVec  length  direction    isTab
 
   num_divisions = int(length/nomTab)  # divisions
 
-  if not num_divisions%2: 
+  if num_divisions % 2 == 0: 
     num_divisions -= 1   # make divs odd
 
   num_divisions = float(num_divisions)
@@ -57,37 +59,41 @@ def side((rx,ry),(sox,soy),(eox,eoy),tabVec,length,(dirx,diry),isTab):
     first =- correction/2
     
   s = [] 
-  firstVec=0; secondVec=tabVec
-  dirxN=0 if dirx else 1 # used to select operation on x or y
-  diryN=0 if diry else 1
-  (Vx,Vy)=(rx+sox*thickness,ry+soy*thickness)
-  s='M '+str(Vx)+','+str(Vy)+' '
+  firstVec = 0 
+  secondVec = tabVec
 
-  if dirxN: Vy=ry # set correct line start
-  if diryN: Vx=rx
+  dirxN = 0 if dirx else 1 # used to select operation on x or y
+  diryN = 0 if diry else 1
+  (Vx, Vy) = (rx+sox*thickness,ry+soy*thickness)
+  s = 'M '+str(Vx)+','+str(Vy)+' '
+
+  if dirxN: 
+    Vy = ry # set correct line start
+  if diryN:
+    Vx = rx
 
   # generate line as tab or hole using:
   #   last co-ord:Vx,Vy ; tab dir:tabVec  ; direction:dirx,diry ; thickness:thickness
   #   divisions:num_divisions ; gap width:gapWidth ; tab width:tabWidth
 
   for n in range(1, int(num_divisions)):
-    if n%2:
-      Vx=Vx+dirx*gapWidth+dirxN*firstVec+first*dirx
-      Vy=Vy+diry*gapWidth+diryN*firstVec+first*diry
-      s+='L '+str(Vx)+','+str(Vy)+' '
-      Vx=Vx+dirxN*secondVec
-      Vy=Vy+diryN*secondVec
-      s+='L '+str(Vx)+','+str(Vy)+' '
+    if n % 2 == 1:
+      Vx = Vx+dirx*gapWidth+dirxN*firstVec+first*dirx
+      Vy = Vy+diry*gapWidth+diryN*firstVec+first*diry
+      s += 'L '+str(Vx)+','+str(Vy)+' '
+      Vx = Vx+dirxN*secondVec
+      Vy = Vy+diryN*secondVec
+      s += 'L '+str(Vx)+','+str(Vy)+' '
     else:
-      Vx=Vx+dirx*tabWidth+dirxN*firstVec
-      Vy=Vy+diry*tabWidth+diryN*firstVec
-      s+='L '+str(Vx)+','+str(Vy)+' '
-      Vx=Vx+dirxN*secondVec
-      Vy=Vy+diryN*secondVec
-      s+='L '+str(Vx)+','+str(Vy)+' '
-    (secondVec,firstVec)=(-secondVec,-firstVec) # swap tab direction
-    first=0
-  s+='L '+str(rx+eox*thickness+dirx*length)+','+str(ry+eoy*thickness+diry*length)+' '
+      Vx = Vx+dirx*tabWidth+dirxN*firstVec
+      Vy = Vy+diry*tabWidth+diryN*firstVec
+      s += 'L '+str(Vx)+','+str(Vy)+' '
+      Vx = Vx+dirxN*secondVec
+      Vy = Vy+diryN*secondVec
+      s += 'L '+str(Vx)+','+str(Vy)+' '
+    (secondVec,firstVec) = (-secondVec,-firstVec) # swap tab direction
+    first = 0
+  s += 'L ' + str(rx+eox*thickness+dirx*length) + ',' + str(ry+eoy*thickness+diry*length) + ' '
   return s
 
   
@@ -122,37 +128,38 @@ class BoxMaker(inkex.Effect):
         dest='spacing',default=25,help='Part Spacing')
 
   def effect(self):
-    global parent,nomTab,equalTabs,thickness,correction
+    global parent, nomTab, equalTabs, thickness, correction
     
-        # Get access to main SVG document element and get its dimensions.
+    # Get access to main SVG document element and get its dimensions.
     svg = self.document.getroot()
     
-        # Get the attibutes:
+    # Get the attibutes:
     widthDoc  = inkex.unittouu(svg.get('width'))
     heightDoc = inkex.unittouu(svg.get('height'))
 
-        # Create a new layer.
+    # Create a new layer.
     layer = inkex.etree.SubElement(svg, 'g')
     layer.set(inkex.addNS('label', 'inkscape'), 'newlayer')
     layer.set(inkex.addNS('groupmode', 'inkscape'), 'layer')
     
     parent = self.current_layer
     
-        # Get script's option values.
+    # Get script's option values.
     unit = self.options.unit
     inside = self.options.inside
-    X = inkex.unittouu( str(self.options.length)  + unit )
+    X = inkex.unittouu( str(self.options.length) + unit )
     Y = inkex.unittouu( str(self.options.width) + unit )
-    Z = inkex.unittouu( str(self.options.height)  + unit )
-    thickness = inkex.unittouu( str(self.options.thickness)  + unit )
+    Z = inkex.unittouu( str(self.options.height) + unit )
+    thickness = inkex.unittouu( str(self.options.thickness) + unit )
     nomTab = inkex.unittouu( str(self.options.tab) + unit )
     equalTabs = self.options.equal
-    kerf = inkex.unittouu( str(self.options.kerf)  + unit )
-    clearance = inkex.unittouu( str(self.options.clearance)  + unit )
+    kerf = inkex.unittouu( str(self.options.kerf) + unit )
+    clearance = inkex.unittouu( str(self.options.clearance) + unit )
     layout = self.options.style
-    spacing = inkex.unittouu( str(self.options.spacing)  + unit )
+    spacing = inkex.unittouu( str(self.options.spacing) + unit )
     
-    if inside: # if inside dimension selected correct values to outside dimension
+    if inside: 
+      # convert inside dimension to outside dimension
       X += thickness*2
       Y += thickness*2
       Z += thickness*2
@@ -166,13 +173,13 @@ class BoxMaker(inkex.Effect):
     if min(X,Y,Z) == 0:
       inkex.errormsg(_('Error: Dimensions must be non zero'))
       error = 1
-    if max(X,Y,Z)>max(widthDoc,heightDoc)*10: # crude test
+    if max(X,Y,Z) > max(widthDoc,heightDoc)*10: # crude test
       inkex.errormsg(_('Error: Dimensions Too Large'))
       error = 1
-    if min(X,Y,Z)<3*nomTab:
+    if min(X,Y,Z) < 3*nomTab:
       inkex.errormsg(_('Error: Tab size too large'))
       error = 1
-    if nomTab<thickness:
+    if nomTab < thickness:
       inkex.errormsg(_('Error: Tab size too small'))
       error = 1	  
     if thickness == 0:
@@ -197,30 +204,30 @@ class BoxMaker(inkex.Effect):
     # root= (spacing,X,Y,Z) * values in tuple
     # tabInfo= <abcd> 0=holes 1=tabs
     if layout==1: # Diagramatic Layout
-      pieces=[[(2,0,0,1),(3,0,1,1),X,Z,0b1010],[(1,0,0,0),(2,0,0,1),Z,Y,0b1111],
-              [(2,0,0,1),(2,0,0,1),X,Y,0b0000],[(3,1,0,1),(2,0,0,1),Z,Y,0b1111],
-              [(4,1,0,2),(2,0,0,1),X,Y,0b0000],[(2,0,0,1),(1,0,0,0),X,Z,0b1010]]
+      pieces=[[(2,0,0,1),(3,0,1,1),X,Z,0b1010], [(1,0,0,0),(2,0,0,1),Z,Y,0b1111],
+              [(2,0,0,1),(2,0,0,1),X,Y,0b0000], [(3,1,0,1),(2,0,0,1),Z,Y,0b1111],
+              [(4,1,0,2),(2,0,0,1),X,Y,0b0000], [(2,0,0,1),(1,0,0,0),X,Z,0b1010]]
     elif layout==2: # 3 Piece Layout
-      pieces=[[(2,0,0,1),(2,0,1,0),X,Z,0b1010],[(1,0,0,0),(1,0,0,0),Z,Y,0b1111],
+      pieces=[[(2,0,0,1),(2,0,1,0),X,Z,0b1010], [(1,0,0,0),(1,0,0,0),Z,Y,0b1111],
               [(2,0,0,1),(1,0,0,0),X,Y,0b0000]]
     elif layout==3: # Inline(compact) Layout
-      pieces=[[(1,0,0,0),(1,0,0,0),X,Y,0b0000],[(2,1,0,0),(1,0,0,0),X,Y,0b0000],
-              [(3,2,0,0),(1,0,0,0),Z,Y,0b0101],[(4,2,0,1),(1,0,0,0),Z,Y,0b0101],
-              [(5,2,0,2),(1,0,0,0),X,Z,0b1111],[(6,3,0,2),(1,0,0,0),X,Z,0b1111]]
+      pieces=[[(1,0,0,0),(1,0,0,0),X,Y,0b0000], [(2,1,0,0),(1,0,0,0),X,Y,0b0000],
+              [(3,2,0,0),(1,0,0,0),Z,Y,0b0101], [(4,2,0,1),(1,0,0,0),Z,Y,0b0101],
+              [(5,2,0,2),(1,0,0,0),X,Z,0b1111], [(6,3,0,2),(1,0,0,0),X,Z,0b1111]]
     elif layout==4: # Diagramatic Layout with Alternate Tab Arrangement
-      pieces=[[(2,0,0,1),(3,0,1,1),X,Z,0b1001],[(1,0,0,0),(2,0,0,1),Z,Y,0b1100],
-              [(2,0,0,1),(2,0,0,1),X,Y,0b1100],[(3,1,0,1),(2,0,0,1),Z,Y,0b0110],
-              [(4,1,0,2),(2,0,0,1),X,Y,0b0110],[(2,0,0,1),(1,0,0,0),X,Z,0b1100]]
+      pieces=[[(2,0,0,1),(3,0,1,1),X,Z,0b1001], [(1,0,0,0),(2,0,0,1),Z,Y,0b1100],
+              [(2,0,0,1),(2,0,0,1),X,Y,0b1100], [(3,1,0,1),(2,0,0,1),Z,Y,0b0110],
+              [(4,1,0,2),(2,0,0,1),X,Y,0b0110], [(2,0,0,1),(1,0,0,0),X,Z,0b1100]]
 
     for piece in pieces: # generate and draw each piece of the box
-      (xs,xx,xy,xz)=piece[0]
-      (ys,yx,yy,yz)=piece[1]
-      x=xs*spacing+xx*X+xy*Y+xz*Z  # root x co-ord for piece
-      y=ys*spacing+yx*X+yy*Y+yz*Z  # root y co-ord for piece
-      dx=piece[2]
-      dy=piece[3]
-      tabs=piece[4]
-      a=tabs>>3&1; b=tabs>>2&1; c=tabs>>1&1; d=tabs&1 # extract tab status for each side
+      (xs,xx,xy,xz) = piece[0]
+      (ys,yx,yy,yz) = piece[1]
+      x = xs*spacing+xx*X+xy*Y+xz*Z  # root x co-ord for piece
+      y = ys*spacing+yx*X+yy*Y+yz*Z  # root y co-ord for piece
+      dx = piece[2]
+      dy = piece[3]
+      tabs = piece[4]
+      a = tabs>>3&1; b=tabs>>2&1; c=tabs>>1&1; d=tabs&1 # extract tab status for each side
       # generate and draw the sides of each piece
       drawS(side((x,y),(d,a),(-b,a),-thickness if a else thickness,dx,(1,0),a))          # side a
       drawS(side((x+dx,y),(-b,a),(-b,-c),thickness if b else -thickness,dy,(0,1),b))     # side b
