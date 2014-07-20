@@ -32,69 +32,6 @@ def drawS(XYstring):         # Draw lines from a list
   inkex.etree.SubElement(parent, inkex.addNS('path','svg'), drw )
   return
 
-def tabbed_side((rx,ry), (sox,soy), (eox,eoy), tabVec, length, (dirx,diry), isTab):
-  #       root    startOffset endOffset tabVec  length  direction    isTab
-
-  num_divisions = int(length/nomTab)  # divisions
-
-  if num_divisions % 2 == 0: 
-    num_divisions -= 1   # make divs odd
-
-  num_divisions = float(num_divisions)
-  tabs = (num_divisions-1)/2          # tabs for side
-  
-  if equalTabs:
-    gapWidth = tabWidth = length/num_divisions
-  else:
-    tabWidth = nomTab
-    gapWidth = (length-tabs*nomTab)/(num_divisions-tabs)
-    
-  if isTab:                 # kerf correction
-    gapWidth -= correction
-    tabWidth += correction
-    first = correction/2
-  else:
-    gapWidth += correction
-    tabWidth -= correction
-    first =- correction/2
-    
-  s = [] 
-  firstVec = 0 
-  secondVec = tabVec
-
-  dirxN = 0 if dirx else 1 # used to select operation on x or y
-  diryN = 0 if diry else 1
-  (Vx, Vy) = (rx+sox*thickness,ry+soy*thickness)
-  s = 'M ' + str(Vx) + ',' + str(Vy) + ' '
-
-  if dirxN: 
-    Vy = ry # set correct line start
-  if diryN:
-    Vx = rx
-
-  # generate line as tab or hole using:
-  #   last co-ord:Vx,Vy ; tab dir:tabVec  ; direction:dirx,diry ; thickness:thickness
-  #   divisions:num_divisions ; gap width:gapWidth ; tab width:tabWidth
-
-  for n in range(1, int(num_divisions)):
-    if n % 2 == 1:
-      Vx = Vx + dirx*gapWidth + dirxN*firstVec + first*dirx
-      Vy = Vy + diry*gapWidth + diryN*firstVec + first*diry
-      s += 'L ' + str(Vx) + ',' + str(Vy) + ' '
-      Vx = Vx + dirxN*secondVec
-      Vy = Vy + diryN*secondVec
-      s += 'L ' + str(Vx) + ',' + str(Vy) + ' '
-    else:
-      Vx = Vx+dirx*tabWidth+dirxN*firstVec
-      Vy = Vy+diry*tabWidth+diryN*firstVec
-      s += 'L ' + str(Vx) + ',' + str(Vy) + ' '
-      Vx = Vx + dirxN*secondVec
-      Vy = Vy + diryN*secondVec
-      s += 'L ' + str(Vx) + ',' + str(Vy) + ' '
-    (secondVec,firstVec) = (-secondVec,-firstVec) # swap tab direction
-    first = 0
-  s += 'L ' + str(rx+eox*thickness+dirx*length) + ',' + str(ry+eoy*thickness+diry*length) + ' '
-  return s
 
   
 class BoxMaker(inkex.Effect):
@@ -127,6 +64,81 @@ class BoxMaker(inkex.Effect):
       self.OptionParser.add_option('--spacing',action='store',type='float',
         dest='spacing',default=25,help='Part Spacing')
 
+  def tabbed_side(self, (rx,ry), (sox,soy), (eox,eoy), tabVec, length, (dirx,diry), isTab):
+    #       root    startOffset endOffset tabVec  length  direction    isTab
+    num_divisions = int(length/nomTab)  # divisions
+
+    if num_divisions % 2 == 0: 
+      num_divisions -= 1   # make divs odd
+
+    num_divisions = float(num_divisions)
+    tabs = (num_divisions-1)/2          # tabs for side
+    
+    if equalTabs:
+      gapWidth = tabWidth = length/num_divisions
+    else:
+      tabWidth = nomTab
+      gapWidth = (length-tabs*nomTab)/(num_divisions-tabs)
+      
+    # kerf correction
+    if isTab:                 
+      gapWidth -= correction
+      tabWidth += correction
+      first = correction/2
+    else:
+      gapWidth += correction
+      tabWidth -= correction
+      first =- correction/2
+      
+    s = [] 
+    firstVec = 0 
+    secondVec = tabVec
+
+    # used to select operation on x or y
+    dirxN = 0 if dirx else 1 
+    diryN = 0 if diry else 1
+    (Vx, Vy) = (rx+sox*self.thickness,ry+soy*self.thickness)
+    s = 'M ' + str(Vx) + ',' + str(Vy) + ' '
+
+    if dirxN: 
+      Vy = ry # set correct line start
+    if diryN:
+      Vx = rx
+
+    # generate line as tab or hole using:
+    #   last co-ord:Vx,Vy ; tab dir:tabVec  ; direction:dirx,diry ; thickness:thickness
+    #   divisions:num_divisions ; gap width:gapWidth ; tab width:tabWidth
+
+    for n in range(1, int(num_divisions)):
+      if n % 2 == 1:
+        Vx = Vx + dirx*gapWidth + dirxN*firstVec + first*dirx
+        Vy = Vy + diry*gapWidth + diryN*firstVec + first*diry
+        s += 'L ' + str(Vx) + ',' + str(Vy) + ' '
+        Vx = Vx + dirxN*secondVec
+        Vy = Vy + diryN*secondVec
+        s += 'L ' + str(Vx) + ',' + str(Vy) + ' '
+      else:
+        Vx = Vx+dirx*tabWidth+dirxN*firstVec
+        Vy = Vy+diry*tabWidth+diryN*firstVec
+        s += 'L ' + str(Vx) + ',' + str(Vy) + ' '
+        Vx = Vx + dirxN*secondVec
+        Vy = Vy + diryN*secondVec
+        s += 'L ' + str(Vx) + ',' + str(Vy) + ' '
+      (secondVec,firstVec) = (-secondVec,-firstVec) # swap tab direction
+      first = 0
+    s += 'L ' + str(rx+eox*self.thickness+dirx*length) + ',' + str(ry+eoy*self.thickness+diry*length) + ' '
+    return s
+
+  def flat_side(self, root, start_offset, end_offset, direction, length):
+    current_x = root[0] + start_offset[0]*self.thickness
+    current_y = root[1] + start_offset[1]*self.thickness
+    draw_cmd = 'M' + str(current_x) + ',' + str(current_y) + ' '
+    draw_cmd += 'L ' + str(root[0] + end_offset[0]*self.thickness+direction[0]*length) + ',' 
+                     + str(root[1] + end_offset[1]*self.thickness+direction[1]*length) + ' '
+
+    return draw_cmd
+
+
   def draw_pieces(self, pieces, thickness, spacing):
     for piece in pieces: # generate and draw each piece of the box
       (xs,xx,xy,xz) = piece[0]
@@ -143,14 +155,14 @@ class BoxMaker(inkex.Effect):
       c= tabs>>1 & 1
       d= tabs & 1 
       # generate and draw the sides of each piece
-      drawS(tabbed_side((x,y), (d,a), (-b,a), -thickness if a else thickness, dx, (1,0), a))          # side a
-      drawS(tabbed_side((x+dx,y), (-b,a), (-b,-c), thickness if b else -thickness, dy, (0,1), b))     # side b
-      drawS(tabbed_side((x+dx,y+dy), (-b,-c), (d,-c), thickness if c else -thickness, dx, (-1,0), c)) # side c
-      drawS(tabbed_side((x,y+dy), (d,-c), (d,a), -thickness if d else thickness, dy, (0,-1), d))      # side d
+      drawS(self.tabbed_side((x,y), (d,a), (-b,a), -thickness if a else thickness, dx, (1,0), a))          # side a
+      drawS(self.tabbed_side((x+dx,y), (-b,a), (-b,-c), thickness if b else -thickness, dy, (0,1), b))     # side b
+      drawS(self.tabbed_side((x+dx,y+dy), (-b,-c), (d,-c), thickness if c else -thickness, dx, (-1,0), c)) # side c
+      drawS(self.tabbed_side((x,y+dy), (d,-c), (d,a), -thickness if d else thickness, dy, (0,-1), d))      # side d
 
 
   def effect(self):
-    global parent, nomTab, equalTabs, thickness, correction
+    global parent, nomTab, equalTabs, correction
     
     # Get access to main SVG document element and get its dimensions.
     svg = self.document.getroot()
@@ -181,6 +193,8 @@ class BoxMaker(inkex.Effect):
     layout = self.options.style
     spacing = inkex.unittouu( str(self.options.spacing) + unit )
     
+    self.thickness = thickness
+
     if inside: 
       # convert inside dimension to outside dimension
       self.x_dim += thickness*2
